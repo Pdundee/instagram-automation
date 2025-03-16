@@ -1,11 +1,27 @@
 const axios = require('axios');
 const { parse } = require('node-html-parser');
+const dns = require('dns'); // Aggiunto per il controllo DNS
 
 // Configurazione
 const config = {
   siteUrl: 'https://canieucori.it',
   articlesSelector: 'article.post',
 };
+
+// Funzione per verificare la risoluzione DNS
+async function checkDns(hostname) {
+  return new Promise((resolve, reject) => {
+    dns.resolve(hostname, (err) => {
+      if (err) {
+        console.error('Errore DNS:', err);
+        reject(err);
+      } else {
+        console.log('DNS risolto correttamente per:', hostname);
+        resolve();
+      }
+    });
+  });
+}
 
 // Funzione per pubblicare su Instagram
 async function publishToInstagram(article) {
@@ -25,11 +41,16 @@ async function publishToInstagram(article) {
   return response.data;
 }
 
-// Funzione principale
-async function main() {
+// Funzione per recuperare gli articoli
+async function fetchAllArticles() {
   try {
-    // Recupera gli articoli
-    const { data } = await axios.get(config.siteUrl);
+    // Verifica la risoluzione DNS prima di fare la richiesta
+    await checkDns('canieucori.it');
+
+    // Usa un proxy per evitare problemi di CORS o restrizioni di rete
+    const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+    const { data } = await axios.get(proxyUrl + config.siteUrl, { timeout: 5000 });
+
     const root = parse(data);
     const articles = root.querySelectorAll(config.articlesSelector).map(article => ({
       id: article.querySelector('a').getAttribute('href'),
@@ -37,6 +58,22 @@ async function main() {
       excerpt: article.querySelector('p.excerpt')?.text.trim() || 'Scopri di più sul nostro sito!',
       imageUrl: article.querySelector('img')?.getAttribute('src') || '',
     }));
+
+    return articles;
+  } catch (error) {
+    console.error('Errore nel recupero degli articoli:', error.message);
+    return [];
+  }
+}
+
+// Funzione principale
+async function main() {
+  try {
+    // Recupera gli articoli
+    const articles = await fetchAllArticles();
+    if (articles.length === 0) {
+      throw new Error('Nessun articolo trovato');
+    }
 
     // Seleziona un articolo casuale
     const randomArticle = articles[Math.floor(Math.random() * articles.length)];
@@ -49,7 +86,7 @@ async function main() {
     const result = await publishToInstagram(randomArticle);
     console.log('Pubblicazione completata:', result);
   } catch (error) {
-    console.error('Errore:', error);
+    console.error('Errore durante l\'esecuzione:', error.message);
   }
 }
 
