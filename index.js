@@ -28,8 +28,8 @@ async function publishToInstagram(article) {
 // Funzione per recuperare gli articoli
 async function fetchAllArticles() {
   try {
-    // Usa un proxy alternativo
-    const proxyUrl = 'https://api.allorigins.win/raw?url=';
+    // Usa un proxy diverso
+    const proxyUrl = 'https://corsproxy.io/?';
     const { data } = await axios.get(proxyUrl + encodeURIComponent(config.siteUrl), { timeout: 5000 });
 
     const root = parse(data);
