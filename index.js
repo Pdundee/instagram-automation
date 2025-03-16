@@ -29,8 +29,8 @@ async function publishToInstagram(article) {
 async function fetchAllArticles() {
   try {
     // Usa un proxy diverso
-    const proxyUrl = 'https://corsproxy.io/?';
-    const { data } = await axios.get(proxyUrl + encodeURIComponent(config.siteUrl), { timeout: 5000 });
+    const proxyUrl = 'https://thingproxy.freeboard.io/fetch/';
+    const { data } = await axios.get(proxyUrl + config.siteUrl, { timeout: 5000 });
 
     const root = parse(data);
     const articles = root.querySelectorAll(config.articlesSelector).map(article => ({
