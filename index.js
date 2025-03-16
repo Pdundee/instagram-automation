@@ -1,27 +1,11 @@
 const axios = require('axios');
 const { parse } = require('node-html-parser');
-const dns = require('dns'); // Aggiunto per il controllo DNS
 
 // Configurazione
 const config = {
   siteUrl: 'https://canieucori.it',
   articlesSelector: 'article.post',
 };
-
-// Funzione per verificare la risoluzione DNS
-async function checkDns(hostname) {
-  return new Promise((resolve, reject) => {
-    dns.resolve(hostname, (err) => {
-      if (err) {
-        console.error('Errore DNS:', err);
-        reject(err);
-      } else {
-        console.log('DNS risolto correttamente per:', hostname);
-        resolve();
-      }
-    });
-  });
-}
 
 // Funzione per pubblicare su Instagram
 async function publishToInstagram(article) {
@@ -44,12 +28,9 @@ async function publishToInstagram(article) {
 // Funzione per recuperare gli articoli
 async function fetchAllArticles() {
   try {
-    // Verifica la risoluzione DNS prima di fare la richiesta
-    await checkDns('canieucori.it');
-
-    // Usa un proxy per evitare problemi di CORS o restrizioni di rete
-    const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-    const { data } = await axios.get(proxyUrl + config.siteUrl, { timeout: 5000 });
+    // Usa un proxy alternativo
+    const proxyUrl = 'https://api.allorigins.win/raw?url=';
+    const { data } = await axios.get(proxyUrl + encodeURIComponent(config.siteUrl), { timeout: 5000 });
 
     const root = parse(data);
     const articles = root.querySelectorAll(config.articlesSelector).map(article => ({
