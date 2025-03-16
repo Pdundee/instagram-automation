@@ -5,51 +5,93 @@ const { parse } = require('node-html-parser');
 const config = {
   siteUrl: 'https://canieucori.it',
   articlesSelector: 'article.post',
+  timeout: 5000, // Timeout per le richieste
+  retries: 3, // Numero di tentativi in caso di errore
+  proxyList: [
+    'https://cors.bridged.cc/',
+    'https://cors-anywhere.herokuapp.com/',
+    'https://api.allorigins.win/raw?url=',
+    'https://thingproxy.freeboard.io/fetch/',
+  ], // Lista di proxy alternativi
 };
 
 // Funzione per pubblicare su Instagram
 async function publishToInstagram(article) {
-  const caption = `${article.title}\n\n${article.excerpt}\n\nVieni a scoprire di più! 🐾💖\n\n#cani #cuori #animali`;
-  const imageUrl = article.imageUrl;
+  try {
+    const caption = `${article.title}\n\n${article.excerpt}\n\nVieni a scoprire di più! 🐾💖\n\n#cani #cuori #animali`;
+    const imageUrl = article.imageUrl;
 
-  // Usa l'API di Instagram
-  const response = await axios.post(
-    `https://graph.instagram.com/me/media?access_token=${process.env.INSTAGRAM_ACCESS_TOKEN}`,
-    {
-      caption,
-      image_url: imageUrl,
-    }
-  );
+    // Usa l'API di Instagram
+    const response = await axios.post(
+      `https://graph.instagram.com/me/media?access_token=${process.env.INSTAGRAM_ACCESS_TOKEN}`,
+      {
+        caption,
+        image_url: imageUrl,
+      }
+    );
 
-  console.log('Pubblicato su Instagram:', response.data);
-  return response.data;
+    console.log('Pubblicato su Instagram:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('Errore nella pubblicazione su Instagram:', error.message);
+    throw error;
+  }
+}
+
+// Funzione per verificare la disponibilità del sito
+async function checkSiteAvailability(url) {
+  try {
+    const response = await axios.head(url, { timeout: config.timeout });
+    return response.status === 200;
+  } catch (error) {
+    console.error('Errore nella verifica della disponibilità del sito:', error.message);
+    return false;
+  }
 }
 
 // Funzione per recuperare gli articoli
 async function fetchAllArticles() {
-  try {
-    // Usa un proxy diverso
-    const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-    const { data } = await axios.get(proxyUrl + config.siteUrl, { timeout: 5000 });
+  for (let attempt = 1; attempt <= config.retries; attempt++) {
+    for (const proxyUrl of config.proxyList) {
+      try {
+        console.log(`Tentativo ${attempt}: uso del proxy ${proxyUrl}`);
 
-    const root = parse(data);
-    const articles = root.querySelectorAll(config.articlesSelector).map(article => ({
-      id: article.querySelector('a').getAttribute('href'),
-      title: article.querySelector('h2').text.trim(),
-      excerpt: article.querySelector('p.excerpt')?.text.trim() || 'Scopri di più sul nostro sito!',
-      imageUrl: article.querySelector('img')?.getAttribute('src') || '',
-    }));
+        // Verifica la disponibilità del sito
+        const isSiteAvailable = await checkSiteAvailability(config.siteUrl);
+        if (!isSiteAvailable) {
+          throw new Error('Il sito non è disponibile');
+        }
 
-    return articles;
-  } catch (error) {
-    console.error('Errore nel recupero degli articoli:', error.message);
-    return [];
+        // Recupera gli articoli usando il proxy corrente
+        const { data } = await axios.get(proxyUrl + encodeURIComponent(config.siteUrl), {
+          timeout: config.timeout,
+        });
+
+        const root = parse(data);
+        const articles = root.querySelectorAll(config.articlesSelector).map(article => ({
+          id: article.querySelector('a').getAttribute('href'),
+          title: article.querySelector('h2').text.trim(),
+          excerpt: article.querySelector('p.excerpt')?.text.trim() || 'Scopri di più sul nostro sito!',
+          imageUrl: article.querySelector('img')?.getAttribute('src') || '',
+        }));
+
+        return articles;
+      } catch (error) {
+        console.error(`Errore nel recupero degli articoli (proxy: ${proxyUrl}):`, error.message);
+        if (attempt === config.retries) {
+          throw error; // Rilancia l'errore dopo l'ultimo tentativo
+        }
+      }
+    }
   }
+  return []; // Restituisci un array vuoto se tutti i tentativi falliscono
 }
 
 // Funzione principale
 async function main() {
   try {
+    console.log('Avvio del processo...');
+
     // Recupera gli articoli
     const articles = await fetchAllArticles();
     if (articles.length === 0) {
