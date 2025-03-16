@@ -29,7 +29,7 @@ async function publishToInstagram(article) {
 async function fetchAllArticles() {
   try {
     // Usa un proxy diverso
-    const proxyUrl = 'https://thingproxy.freeboard.io/fetch/';
+    const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
     const { data } = await axios.get(proxyUrl + config.siteUrl, { timeout: 5000 });
 
     const root = parse(data);
